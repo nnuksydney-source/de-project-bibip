@@ -109,7 +109,6 @@ class CarService:
         return car
 
     def sell_car(self, sale: Sale) -> Car:
-        # 1. Записываем продажу в sales.txt и sales_index.txt
         sales_index = self._read_index(self.sales_index_file)
         sale_row_num = self._get_total_rows(self.sales_file)
 
@@ -121,16 +120,12 @@ class CarService:
             "is_deleted": False,
         }
         self._write_line(self.sales_file, sale_row_num, sale_data)
-
         sales_index.append((sale.sales_number, sale_row_num))
         self._write_index(self.sales_index_file, sales_index)
-
-        # 2. Обновляем статус автомобиля на sold в cars.txt
         cars_index = self._read_index(self.cars_index_file)
         car_row_num = self._find_row_in_index(cars_index, sale.car_vin)
         if car_row_num is None:
             raise ValueError(f"Автомобиль с VIN {sale.car_vin} не найден")
-
         car_dict = self._read_line(self.cars_file, car_row_num)
         car_dict["status"] = CarStatus.sold.value
         self._write_line(self.cars_file, car_row_num, car_dict)
@@ -139,7 +134,7 @@ class CarService:
             vin=car_dict["vin"],
             model=int(car_dict["model"]),
             price=Decimal(car_dict["price"]),
-            date_start=datetime.fromisoformat(car_dict["date_start"]),
+            date_start=datetime.fromisoformat(car_dict["date_start"]), 
             status=CarStatus(car_dict["status"]),
         )
 
@@ -152,7 +147,7 @@ class CarService:
             car_dict = self._read_line(self.cars_file, row_num)
             if car_dict and car_dict.get("status") == target_status:
                 available_cars.append(
-                    Car(
+                    Car( 
                         vin=car_dict["vin"],
                         model=int(car_dict["model"]),
                         price=Decimal(car_dict["price"]),
@@ -167,16 +162,13 @@ class CarService:
         cars_index = self._read_index(self.cars_index_file)
         car_row_num = self._find_row_in_index(cars_index, vin)
         if car_row_num is None:
-            return None
-
+            return None  
         car_dict = self._read_line(self.cars_file, car_row_num)
         if not car_dict:
             return None
-
         models_index = self._read_index(self.models_index_file)
         model_row_num = self._find_row_in_index(models_index, str(car_dict["model"]))
         model_dict = self._read_line(self.models_file, model_row_num) if model_row_num is not None else {}
-
         sales_date = None
         sales_cost = None
         if car_dict["status"] == CarStatus.sold.value:
@@ -185,7 +177,7 @@ class CarService:
                 sale_dict = self._read_line(self.sales_file, row_num)
                 if (
                     sale_dict
-                    and not sale_dict.get("is_deleted", False)
+                    and not sale_dict.get("is_deleted", False)  
                     and sale_dict.get("car_vin") == vin
                 ):
                     sales_date = datetime.fromisoformat(sale_dict["sales_date"])
@@ -206,7 +198,7 @@ class CarService:
     def update_vin(self, vin: str, new_vin: str) -> Car:
         cars_index = self._read_index(self.cars_index_file)
         car_row_num = self._find_row_in_index(cars_index, vin)
-        if car_row_num is None:
+        if car_row_num is None:  
             raise ValueError(f"Автомобиль с VIN {vin} не найден")
 
         car_dict = self._read_line(self.cars_file, car_row_num)
@@ -222,7 +214,7 @@ class CarService:
         return Car(
             vin=car_dict["vin"],
             model=int(car_dict["model"]),
-            price=Decimal(car_dict["price"]),
+            price=Decimal(car_dict["price"]), 
             date_start=datetime.fromisoformat(car_dict["date_start"]),
             status=CarStatus(car_dict["status"]),
         )
@@ -232,22 +224,18 @@ class CarService:
         sale_row_num = self._find_row_in_index(sales_index, sales_number)
         if sale_row_num is None:
             raise ValueError(f"Продажа {sales_number} не найдена")
-
         sale_dict = self._read_line(self.sales_file, sale_row_num)
         sale_dict["is_deleted"] = True
         self._write_line(self.sales_file, sale_row_num, sale_dict)
-
         updated_sales_index = [(k, r) for k, r in sales_index if k != sales_number]
         self._write_index(self.sales_index_file, updated_sales_index)
-
         car_vin = sale_dict["car_vin"]
         cars_index = self._read_index(self.cars_index_file)
         car_row_num = self._find_row_in_index(cars_index, car_vin)
         car_dict = self._read_line(self.cars_file, car_row_num)
         car_dict["status"] = CarStatus.available.value
         self._write_line(self.cars_file, car_row_num, car_dict)
-
-        return Car(
+        return Car(  
             vin=car_dict["vin"],
             model=int(car_dict["model"]),
             price=Decimal(car_dict["price"]),
@@ -258,35 +246,28 @@ class CarService:
     def top_models_by_sales(self) -> list[ModelSaleStats]:
         cars_index = self._read_index(self.cars_index_file)
         models_index = self._read_index(self.models_index_file)
-
         sales_stats: dict[int, dict] = {}
         total_sales = self._get_total_rows(self.sales_file)
-
         for row_num in range(total_sales):
             sale_dict = self._read_line(self.sales_file, row_num)
             if not sale_dict or sale_dict.get("is_deleted", False):
                 continue
-
             car_vin = sale_dict["car_vin"]
             car_row = self._find_row_in_index(cars_index, car_vin)
             if car_row is None:
                 continue
-
             car_dict = self._read_line(self.cars_file, car_row)
             model_id = int(car_dict["model"])
             car_price = Decimal(car_dict["price"])
-
             if model_id not in sales_stats:
                 sales_stats[model_id] = {"count": 0, "total_price": Decimal("0")}
             sales_stats[model_id]["count"] += 1
             sales_stats[model_id]["total_price"] += car_price
-
         sorted_models = sorted(
             sales_stats.items(),
             key=lambda item: (item[1]["count"], item[1]["total_price"] / item[1]["count"]),
             reverse=True,
         )[:3]
-
         result = []
         for model_id, stats in sorted_models:
             model_row = self._find_row_in_index(models_index, str(model_id))
@@ -297,7 +278,6 @@ class CarService:
                         car_model_name=model_dict["name"],
                         brand=model_dict["brand"],
                         sales_number=stats["count"],
-                    )
+                    )  
                 )
-
-        return result
+        return result  
